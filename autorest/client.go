@@ -190,7 +190,7 @@ type Client struct {
 // NewClientWithUserAgent returns an instance of a Client with the UserAgent set to the passed
 // string.
 func NewClientWithUserAgent(ua string) Client {
-	return newClient(ua, tls.RenegotiateNever)
+	return newClient(ua, tls.RenegotiateNever, []tls.Certificate{})
 }
 
 // ClientOptions contains various Client configuration options.
@@ -200,14 +200,17 @@ type ClientOptions struct {
 
 	// Renegotiation is an optional setting to control client-side TLS renegotiation.
 	Renegotiation tls.RenegotiationSupport
+
+	// Certificate to authorize the user with tls
+	UserCertificates []tls.Certificate
 }
 
 // NewClientWithOptions returns an instance of a Client with the specified values.
 func NewClientWithOptions(options ClientOptions) Client {
-	return newClient(options.UserAgent, options.Renegotiation)
+	return newClient(options.UserAgent, options.Renegotiation, options.UserCertificates)
 }
 
-func newClient(ua string, renegotiation tls.RenegotiationSupport) Client {
+func newClient(ua string, renegotiation tls.RenegotiationSupport, userCerts []tls.Certificate) Client {
 	c := Client{
 		PollingDelay:    DefaultPollingDelay,
 		PollingDuration: DefaultPollingDuration,
@@ -215,7 +218,7 @@ func newClient(ua string, renegotiation tls.RenegotiationSupport) Client {
 		RetryDuration:   DefaultRetryDuration,
 		UserAgent:       UserAgent(),
 	}
-	c.Sender = c.sender(renegotiation)
+	c.Sender = c.sender(renegotiation, userCerts)
 	c.AddToUserAgent(ua)
 	return c
 }
@@ -259,7 +262,7 @@ func (c Client) Do(r *http.Request) (*http.Response, error) {
 			return true, v
 		},
 	})
-	resp, err := SendWithSender(c.sender(tls.RenegotiateNever), r)
+	resp, err := SendWithSender(c.sender(tls.RenegotiateNever, []tls.Certificate{}), r)
 	if resp == nil && err == nil {
 		err = errors.New("autorest: received nil response and error")
 	}
@@ -269,9 +272,9 @@ func (c Client) Do(r *http.Request) (*http.Response, error) {
 }
 
 // sender returns the Sender to which to send requests.
-func (c Client) sender(renengotiation tls.RenegotiationSupport) Sender {
+func (c Client) sender(renengotiation tls.RenegotiationSupport, userCerts []tls.Certificate) Sender {
 	if c.Sender == nil {
-		return sender(renengotiation)
+		return sender(renengotiation, userCerts)
 	}
 	return c.Sender
 }
