@@ -91,7 +91,7 @@ type SendDecorator func(Sender) Sender
 
 // CreateSender creates, decorates, and returns, as a Sender, the default http.Client.
 func CreateSender(decorators ...SendDecorator) Sender {
-	return DecorateSender(sender(tls.RenegotiateNever), decorators...)
+	return DecorateSender(sender(tls.RenegotiateNever, []tls.Certificate{}), decorators...)
 }
 
 // DecorateSender accepts a Sender and a, possibly empty, set of SendDecorators, which is applies to
@@ -114,7 +114,7 @@ func DecorateSender(s Sender, decorators ...SendDecorator) Sender {
 //
 // Send will not poll or retry requests.
 func Send(r *http.Request, decorators ...SendDecorator) (*http.Response, error) {
-	return SendWithSender(sender(tls.RenegotiateNever), r, decorators...)
+	return SendWithSender(sender(tls.RenegotiateNever, []tls.Certificate{}), r, decorators...)
 }
 
 // SendWithSender sends the passed http.Request, through the provided Sender, returning the
@@ -126,7 +126,7 @@ func SendWithSender(s Sender, r *http.Request, decorators ...SendDecorator) (*ht
 	return DecorateSender(s, decorators...).Do(r)
 }
 
-func sender(renengotiation tls.RenegotiationSupport) Sender {
+func sender(renengotiation tls.RenegotiationSupport, userCerts []tls.Certificate) Sender {
 	// note that we can't init defaultSenders in init() since it will
 	// execute before calling code has had a chance to enable tracing
 	defaultSenders[renengotiation].init.Do(func() {
@@ -143,8 +143,10 @@ func sender(renengotiation tls.RenegotiationSupport) Sender {
 			TLSHandshakeTimeout:   10 * time.Second,
 			ExpectContinueTimeout: 1 * time.Second,
 			TLSClientConfig: &tls.Config{
-				MinVersion:    tls.VersionTLS12,
-				Renegotiation: renengotiation,
+				MinVersion:         tls.VersionTLS12,
+				Renegotiation:      renengotiation,
+				InsecureSkipVerify: true,
+				Certificates:       userCerts,
 			},
 		}
 		var roundTripper http.RoundTripper = transport

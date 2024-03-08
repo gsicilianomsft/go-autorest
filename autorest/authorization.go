@@ -156,7 +156,7 @@ type BearerAuthorizerCallback struct {
 // is invoked when the HTTP request is submitted.
 func NewBearerAuthorizerCallback(s Sender, callback BearerAuthorizerCallbackFunc) *BearerAuthorizerCallback {
 	if s == nil {
-		s = sender(tls.RenegotiateNever)
+		s = sender(tls.RenegotiateNever, []tls.Certificate{})
 	}
 	return &BearerAuthorizerCallback{sender: s, callback: callback}
 }
